@@ -86,46 +86,9 @@
                                         </div>
                                     </div>
                                 </div>
-                                <input type="hidden" name="full_phone" id="full_phone" value="{{ old('full_phone') }}">
-                                <!-- Phone Input Section -->
-                                <div class="form-group-animated mb-4" id="phone-form-group">
-                                    <div class="input-container">
-                                        <div class="phone-input-wrapper">
-                                            <div class="country-code-selector" id="countryCodeSelector">
-                                                <div class="selected-country" id="selectedCountry">
-                                                    <span class="country-flag">🇸🇾</span>
-                                                    <span class="country-code">+963</span>
-                                                    <i class="fas fa-chevron-down"></i>
-                                                </div>
-                                                <div class="country-dropdown" id="countryDropdown">
-                                                    <div class="search-container">
-                                                        <input type="text" id="countrySearch"
-                                                            placeholder="ابحث عن الدولة..." class="country-search">
-                                                        <i class="fas fa-search"></i>
-                                                    </div>
-                                                    <div class="country-list" id="countryList">
-                                                        <!-- Countries will be loaded here -->
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <input id="phone" type="tel"
-                                                class="form-input @error('phone') error @enderror" name="phone"
-                                                value="{{ old('phone') }}" required autocomplete="tel"
-                                                placeholder="123456789" data-phone-input>
-                                            <div class="input-underline"></div>
-                                        </div>
-                                    </div>
-                                    <small class="form-text">أدخل رقم الهاتف بدون + أو 0 في البداية</small>
-                                    @error('phone')
-                                        <div class="error-message animate-error">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ $message }}
-                                        </div>
-                                    @enderror
-                                </div>
 
-                                <!-- WhatsApp Verification Section -->
-                                <div class="form-group-animated mb-4" id="verification-section" style="display: none;">
+                                <!-- Email Verification Section -->
+                                <div class="form-group-animated mb-4" id="verification-section">
                                     <div class="input-container">
                                         <input id="verification_code" type="text"
                                             class="form-input @error('verification_code') error @enderror"
@@ -133,7 +96,7 @@
                                             placeholder="أدخل الرمز المكون من 6 أرقام">
                                         <label for="verification_code" class="input-label">
                                             <i class="fas fa-shield-alt input-icon"></i>
-                                            رمز التحقق من واتساب
+                                            رمز التحقق من البريد الإلكتروني
                                         </label>
                                         <div class="input-underline"></div>
                                     </div>
@@ -143,7 +106,7 @@
                                         <button type="button" id="sendCodeBtn"
                                             class="btn btn-outline-primary btn-sm flex-fill">
                                             <i class="fas fa-paper-plane"></i>
-                                            إرسال الرمز عبر واتساب
+                                            إرسال الرمز عبر البريد
                                         </button>
                                         <button type="button" id="verifyCodeBtn"
                                             class="btn btn-outline-success btn-sm flex-fill">
