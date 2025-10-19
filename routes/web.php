@@ -7,12 +7,23 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\RestaurantController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\OrderController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
+
+
+Route::post('/contact', [ContactController::class, 'send'])->name('contact.send');
+
+// Test route (sadece local'de)
+if (app()->environment('local')) {
+    Route::get('/test-contact', function () {
+        return view('test-contact');
+    });
+}
 // Email doğrulama routes
 Route::post('/send-verification-code', [RegisterController::class, 'sendVerificationCode'])->name('send.verification.code');
 Route::post('/verify-code', [RegisterController::class, 'verifyCode'])->name('verify.code');

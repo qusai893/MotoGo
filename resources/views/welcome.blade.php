@@ -1,9 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-<head>
-    <link rel="stylesheet" href="{{ asset('css/welcome.css') }}">
-</head>
+
+    <head>
+        <link rel="stylesheet" href="{{ asset('css/welcome.css') }}">
+    </head>
 
     <!-- Hero Section -->
     <section class="hero-section" id="home">
@@ -195,6 +196,7 @@
         </div>
     </section>
 
+    {{-- resources/views/welcome.blade.php --}}
     <!-- Contact Section -->
     <section class="py-5 bg-light" id="contact">
         <div class="container py-5">
@@ -206,32 +208,67 @@
                         <p class="text-center mb-4">للاستفسارات أو طلبات الخدمة، يرجى تعبئة النموذج التالي وسنقوم بالرد
                             عليك في أقرب وقت</p>
                         <form id="contactForm">
+                            @csrf
+                            <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+
                             <div class="row">
                                 <div class="col-md-6">
-                                    <input type="text" class="form-control" placeholder="الاسم الكامل" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <input type="email" class="form-control" placeholder="البريد الإلكتروني" required>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <input type="tel" class="form-control" placeholder="رقم الهاتف" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <input type="text" class="form-control" placeholder="نوع الخدمة المطلوبة"
+                                    <input type="text" name="name" class="form-control" placeholder="الاسم الكامل"
                                         required>
+                                    <div class="invalid-feedback" id="nameError"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="email" name="email" class="form-control"
+                                        placeholder="البريد الإلكتروني" required>
+                                    <div class="invalid-feedback" id="emailError"></div>
                                 </div>
                             </div>
-                            <textarea class="form-control" rows="5" placeholder="تفاصيل الطلب أو الاستفسار" required></textarea>
-                            <button type="submit" class="btn btn-red-primary btn-lg w-100 mt-3">إرسال
-                                الرسالة</button>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="tel" name="phone" class="form-control" placeholder="رقم الهاتف"
+                                        required>
+                                    <div class="invalid-feedback" id="phoneError"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" name="service_type" class="form-control"
+                                        placeholder="نوع الخدمة المطلوبة" required>
+                                    <div class="invalid-feedback" id="serviceTypeError"></div>
+                                </div>
+                            </div>
+                            <textarea name="message" class="form-control" rows="5" placeholder="تفاصيل الطلب أو الاستفسار" required></textarea>
+                            <div class="invalid-feedback" id="messageError"></div>
+
+                            <!-- reCAPTCHA Badge -->
+                            <div class="text-center mt-3">
+                                <small class="text-muted">
+                                    هذا الموقع محمي بواسطة reCAPTCHA وتطبق
+                                    <a href="https://policies.google.com/privacy" target="_blank"
+                                        class="text-muted">سياسة الخصوصية</a> و
+                                    <a href="https://policies.google.com/terms" target="_blank" class="text-muted">شروط
+                                        الخدمة</a>
+                                    الخاصة بـ Google.
+                                </small>
+                            </div>
+
+                            <!-- Success/Error Messages -->
+                            <div id="formMessages" class="mt-3"></div>
+
+                            <button type="submit" class="btn btn-red-primary btn-lg w-100 mt-3" id="submitBtn">
+                                <span id="btnText">إرسال الرسالة</span>
+                                <div id="btnLoader" class="spinner-border spinner-border-sm" role="status"
+                                    style="display: none;">
+                                    <span class="visually-hidden">جاري الإرسال...</span>
+                                </div>
+                            </button>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
     </section>
+
+    <!-- Google reCAPTCHA Script -->
+    <script src="https://www.google.com/recaptcha/api.js?render=6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"></script>
 
 
 
@@ -278,6 +315,190 @@
                     }, 800);
                 }
             });
+        });
+
+
+        // public/js/contact.js
+
+        class ContactForm {
+            constructor() {
+                this.form = document.getElementById('contactForm');
+                this.submitBtn = document.getElementById('submitBtn');
+                this.btnText = document.getElementById('btnText');
+                this.btnLoader = document.getElementById('btnLoader');
+                this.formMessages = document.getElementById('formMessages');
+                this.recaptchaSiteKey = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+                this.isLocal = this.checkLocalEnvironment();
+
+                this.init();
+            }
+
+            init() {
+                if (this.form) {
+                    this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+                    // Local environment info
+                    if (this.isLocal) {
+                        this.showMessage('وضع التطوير النشط: reCAPTCHA في وضع الاختبار', 'info', false);
+                    }
+                }
+            }
+
+            checkLocalEnvironment() {
+                return window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1' ||
+                    window.location.hostname.endsWith('.test') ||
+                    window.location.hostname.endsWith('.local');
+            }
+
+            async handleSubmit(e) {
+                e.preventDefault();
+
+                // Reset previous states
+                this.resetValidation();
+                this.setLoading(true);
+
+                try {
+                    // Get reCAPTCHA token
+                    const token = await this.getRecaptchaToken();
+                    document.getElementById('g-recaptcha-response').value = token;
+
+                    // Submit form
+                    await this.submitForm();
+                } catch (error) {
+                    console.error('Form submission error:', error);
+                    this.showMessage('حدث خطأ أثناء الإرسال. يرجى المحاولة مرة أخرى.', 'error');
+                } finally {
+                    this.setLoading(false);
+                }
+            }
+
+            async getRecaptchaToken() {
+                if (this.isLocal) {
+                    // Local için test token
+                    return 'test-token-localhost-' + Date.now();
+                }
+
+                return new Promise((resolve, reject) => {
+                    grecaptcha.ready(() => {
+                        grecaptcha.execute(this.recaptchaSiteKey, {
+                                action: 'contact'
+                            })
+                            .then(resolve)
+                            .catch(reject);
+                    });
+                });
+            }
+
+            async submitForm() {
+                const formData = new FormData(this.form);
+
+                try {
+                    const response = await fetch('/contact', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showMessage(data.message, 'success');
+                        this.form.reset();
+                        document.getElementById('g-recaptcha-response').value = '';
+                    } else {
+                        this.showMessage(data.message, 'error');
+
+                        // Show validation errors if any
+                        if (data.errors) {
+                            this.showValidationErrors(data.errors);
+                        }
+                    }
+                } catch (error) {
+                    throw new Error('Network error');
+                }
+            }
+
+            setLoading(loading) {
+                this.submitBtn.disabled = loading;
+
+                if (loading) {
+                    this.btnText.textContent = this.isLocal ? 'جاري الاختبار...' : 'جاري الإرسال...';
+                    this.btnLoader.style.display = 'inline-block';
+                } else {
+                    this.btnText.textContent = 'إرسال الرسالة';
+                    this.btnLoader.style.display = 'none';
+                }
+            }
+
+            resetValidation() {
+                const inputs = this.form.querySelectorAll('.is-invalid');
+                inputs.forEach(input => input.classList.remove('is-invalid'));
+
+                const errorElements = this.form.querySelectorAll('.invalid-feedback');
+                errorElements.forEach(el => el.textContent = '');
+            }
+
+            showValidationErrors(errors) {
+                Object.keys(errors).forEach(field => {
+                    const input = this.form.querySelector(`[name="${field}"]`);
+                    const errorElement = document.getElementById(`${field}Error`);
+
+                    if (input && errorElement) {
+                        input.classList.add('is-invalid');
+                        errorElement.textContent = errors[field][0];
+                    }
+                });
+            }
+
+            showMessage(message, type, autoClose = true) {
+                const alertClass = this.getAlertClass(type);
+                const icon = this.getIcon(type);
+
+                this.formMessages.innerHTML = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                <i class="fas ${icon} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+
+                if (autoClose && type === 'success') {
+                    setTimeout(() => {
+                        const alert = this.formMessages.querySelector('.alert');
+                        if (alert) {
+                            alert.remove();
+                        }
+                    }, 5000);
+                }
+            }
+
+            getAlertClass(type) {
+                const classes = {
+                    success: 'alert-success',
+                    error: 'alert-danger',
+                    info: 'alert-info',
+                    warning: 'alert-warning'
+                };
+                return classes[type] || 'alert-info';
+            }
+
+            getIcon(type) {
+                const icons = {
+                    success: 'fa-check-circle',
+                    error: 'fa-exclamation-circle',
+                    info: 'fa-info-circle',
+                    warning: 'fa-exclamation-triangle'
+                };
+                return icons[type] || 'fa-info-circle';
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            new ContactForm();
         });
     </script>
 @endsection
