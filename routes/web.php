@@ -14,8 +14,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-
-
 Route::post('/contact', [ContactController::class, 'send'])->name('contact.send');
 
 // Test route (sadece local'de)
@@ -24,24 +22,12 @@ if (app()->environment('local')) {
         return view('test-contact');
     });
 }
-// Email doğrulama routes
-Route::post('/send-verification-code', [RegisterController::class, 'sendVerificationCode'])->name('send.verification.code');
-Route::post('/verify-code', [RegisterController::class, 'verifyCode'])->name('verify.code');
 
-// Email verification routes
-Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
-    ->middleware(['auth'])
-    ->name('verification.notice');
+// Email verification routes (sadece register için)
+Route::post('/send-verification-code', [EmailVerificationController::class, 'sendVerificationCode'])->name('verification.send');
+Route::post('/verify-code', [EmailVerificationController::class, 'verifyCode'])->name('verification.verify');
 
-Route::post('/email/verify', [EmailVerificationController::class, 'verify'])
-    ->middleware(['auth'])
-    ->name('verification.verify');
-
-Route::post('/email/send', [EmailVerificationController::class, 'send'])
-    ->middleware(['auth'])
-    ->name('verification.send');
-
-// Admin Routes - Artık 'verified' middleware'ı da ekliyoruz
+// Admin Routes
 Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/orders', [AdminController::class, 'orders'])->name('orders.index');

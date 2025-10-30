@@ -22,6 +22,23 @@ class EmailVerification {
         this.emailInput.addEventListener('input', () => {
             this.resetVerification();
         });
+
+        // Sayfa yüklendiğinde localStorage'dan doğrulama durumunu kontrol et
+        this.checkStoredVerification();
+    }
+
+    checkStoredVerification() {
+        const storedEmail = localStorage.getItem('verified_email');
+        const currentEmail = this.emailInput.value.trim();
+
+        if (storedEmail && storedEmail === currentEmail && localStorage.getItem('email_verified') === 'true') {
+            this.isVerified = true;
+            this.verifyCodeBtn.innerHTML = '<i class="fas fa-check-circle"></i> تم التحقق';
+            this.verifyCodeBtn.classList.remove('btn-outline-success');
+            this.verifyCodeBtn.classList.add('btn-success');
+            this.submitBtn.disabled = false;
+            this.showSuccess('تم التحقق مسبقاً');
+        }
     }
 
     resetVerification() {
@@ -32,6 +49,10 @@ class EmailVerification {
         this.verifyCodeBtn.innerHTML = '<i class="fas fa-check"></i> تحقق من الرمز';
         this.verifyCodeBtn.classList.remove('btn-success');
         this.verifyCodeBtn.classList.add('btn-outline-success');
+
+        // localStorage'ı temizle
+        localStorage.removeItem('email_verified');
+        localStorage.removeItem('verified_email');
     }
 
     async sendVerificationCode() {
@@ -62,13 +83,20 @@ class EmailVerification {
             const result = await response.json();
 
             if (result.success) {
-                this.showSuccess('تم إرسال رمز التحقق إلى بريدك الإلكتروني');
+                this.showSuccess(result.message);
                 this.verificationCodeInput.focus();
+
+                // Başarılı gönderimde localStorage'ı temizle (yeni kod gönderildi)
+                localStorage.removeItem('email_verified');
+                localStorage.removeItem('verified_email');
+                this.isVerified = false;
+                this.submitBtn.disabled = true;
             } else {
                 this.showError(result.message);
             }
         } catch (error) {
-            this.showError('حدث خطأ أثناء الإرسال');
+            console.error('Send code error:', error);
+            this.showError('حدث خطأ أثناء الإرسال: ' + error.message);
         } finally {
             this.sendCodeBtn.disabled = false;
             this.sendCodeBtn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال الرمز عبر البريد';
@@ -111,16 +139,23 @@ class EmailVerification {
 
             if (result.success) {
                 this.isVerified = true;
-                this.showSuccess('تم التحقق بنجاح! يمكنك الآن إنشاء الحساب');
+                this.showSuccess(result.message);
                 this.verifyCodeBtn.innerHTML = '<i class="fas fa-check-circle"></i> تم التحقق';
                 this.verifyCodeBtn.classList.remove('btn-outline-success');
                 this.verifyCodeBtn.classList.add('btn-success');
                 this.submitBtn.disabled = false;
+
+                // Store verification status in localStorage
+                localStorage.setItem('email_verified', 'true');
+                localStorage.setItem('verified_email', email);
+
+                console.log('✅ Email verified successfully');
             } else {
                 this.showError(result.message);
             }
         } catch (error) {
-            this.showError('حدث خطأ أثناء التحقق');
+            console.error('Verify code error:', error);
+            this.showError('حدث خطأ أثناء التحقق: ' + error.message);
         } finally {
             this.verifyCodeBtn.disabled = false;
             if (!this.isVerified) {
@@ -230,10 +265,21 @@ function handleFormSubmission() {
     const btnLoader = submitBtn.querySelector('.btn-loader');
 
     form.addEventListener('submit', function (e) {
-        // Önce tüm validasyonları kontrol et
+        // Email doğrulama kontrolü
         if (!window.emailVerification.isVerified) {
             e.preventDefault();
             window.emailVerification.showError('يرجى التحقق من البريد الإلكتروني أولاً');
+            return;
+        }
+
+        // Email'in doğrulanmış email ile aynı olup olmadığını kontrol et
+        const verifiedEmail = localStorage.getItem('verified_email');
+        const currentEmail = document.getElementById('email').value.trim();
+
+        if (verifiedEmail !== currentEmail) {
+            e.preventDefault();
+            window.emailVerification.showError('يرجى التحقق من البريد الإلكتروني الحالي');
+            window.emailVerification.resetVerification();
             return;
         }
 
@@ -252,6 +298,10 @@ function handleFormSubmission() {
         submitBtn.classList.add('loading');
         btnText.textContent = 'جاري إنشاء الحساب...';
         btnLoader.style.display = 'flex';
+
+        // Form gönderildiğinde localStorage'ı temizle
+        localStorage.removeItem('email_verified');
+        localStorage.removeItem('verified_email');
     });
 }
 
@@ -269,6 +319,17 @@ function showTermsError(message) {
     termsContainer.parentNode.insertBefore(errorDiv, termsContainer.nextSibling);
 }
 
+// Form reset handler
+function handleFormReset() {
+    const form = document.querySelector('.auth-form');
+    if (!form) return;
+
+    // Form resetlendiğinde veya sayfa yenilendiğinde doğrulamayı sıfırla
+    form.addEventListener('reset', function () {
+        window.emailVerification.resetVerification();
+    });
+}
+
 // Initialize everything when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize Email verification
@@ -284,6 +345,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Form submission
     handleFormSubmission();
+
+    // Form reset
+    handleFormReset();
+
+    // Sayfa kapatıldığında veya yenilendiğinde localStorage'ı temizle
+    window.addEventListener('beforeunload', function () {
+        // Sadece form gönderilmediyse temizle
+        if (!window.formSubmitted) {
+            localStorage.removeItem('email_verified');
+            localStorage.removeItem('verified_email');
+        }
+    });
 
     // Animation on scroll
     const animateOnScroll = function () {

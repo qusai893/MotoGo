@@ -27,9 +27,6 @@ class EnsureEmailIsVerified
                     'message' => 'Your email address is not verified.'
                 ], 403);
             }
-
-            // Web istekleri için
-            return redirect()->route('verification.notice');
         }
 
         return $next($request);

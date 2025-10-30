@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\Registered;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Auth\Events\Verified;
 
 class RegisterController extends Controller
 {
@@ -48,14 +48,16 @@ class RegisterController extends Controller
         Log::info('Registration request started', $request->all());
 
         // Önce email doğrulamasını kontrol et
-        $verificationCode = EmailVerificationCode::where('email', $request->email)
+        $verification = EmailVerificationCode::where('email', $request->email)
+            ->where('code', $request->verification_code)
             ->where('verified', true)
             ->where('expires_at', '>', now())
             ->first();
 
-        if (!$verificationCode) {
+        if (!$verification) {
             Log::error('Email verification failed for registration', [
-                'email' => $request->email
+                'email' => $request->email,
+                'code' => $request->verification_code
             ]);
             return redirect()->back()
                 ->withErrors(['verification_code' => 'يرجى التحقق من البريد الإلكتروني أولاً'])
@@ -84,7 +86,7 @@ class RegisterController extends Controller
             ]);
 
             // Kullanılan kodu temizle
-            $verificationCode->delete();
+            EmailVerificationCode::where('email', $request->email)->delete();
 
             // Kullanıcıyı login et ve event fırlat
             $this->guard()->login($user);
@@ -109,16 +111,26 @@ class RegisterController extends Controller
         Log::info('Creating user with data', $data);
 
         try {
+            // Önce email doğrulama kodunu kontrol et
+            $verification = EmailVerificationCode::where('email', $data['email'])
+                ->where('verified', true)
+                ->where('expires_at', '>', now())
+                ->first();
+
+            // Eğer doğrulama kodu varsa ve doğrulanmışsa, email_verified_at doldur
+            $emailVerifiedAt = $verification ? now() : null;
+
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
-                'email_verified_at' => now(), // Email zaten doğrulandı
+                'email_verified_at' => $emailVerifiedAt,
             ]);
 
             Log::info('User created in database', [
                 'user_id' => $user->id,
-                'email' => $user->email
+                'email' => $user->email,
+                'email_verified' => !is_null($emailVerifiedAt)
             ]);
 
             return $user;
@@ -128,103 +140,5 @@ class RegisterController extends Controller
             ]);
             throw $e;
         }
-    }
-
-    /**
-     * Doğrulama kodu gönder
-     */
-    public function sendVerificationCode(Request $request)
-    {
-        Log::info('Send verification code request', $request->all());
-
-        $request->validate([
-            'email' => 'required|email'
-        ]);
-
-        // 6 haneli kod oluştur
-        $code = sprintf("%06d", random_int(1, 999999));
-
-        // Kodu veritabanına kaydet
-        $verificationCode = EmailVerificationCode::updateOrCreate(
-            ['email' => $request->email],
-            [
-                'code' => $code,
-                'expires_at' => now()->addMinutes(10),
-                'verified' => false
-            ]
-        );
-
-        // Email gönder
-        try {
-            Mail::send('emails.verification', ['code' => $code], function ($message) use ($request) {
-                $message->to($request->email)
-                    ->subject('رمز التحقق - Verification Code');
-            });
-
-            Log::info('Verification email sent successfully', [
-                'email' => $request->email,
-                'code' => $code
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'تم إرسال رمز التحقق إلى بريدك الإلكتروني',
-                'code' => $code // Development için
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to send verification email', [
-                'error' => $e->getMessage(),
-                'email' => $request->email
-            ]);
-
-            // Hata durumunda kodu sil
-            $verificationCode->delete();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'فشل في إرسال رمز التحقق. يرجى المحاولة مرة أخرى.'
-            ], 500);
-        }
-    }
-
-    /**
-     * Kodu doğrula
-     */
-    public function verifyCode(Request $request)
-    {
-        Log::info('Verify code request', $request->all());
-
-        $request->validate([
-            'email' => 'required|email',
-            'code' => 'required|string|size:6'
-        ]);
-
-        $verificationCode = EmailVerificationCode::where('email', $request->email)
-            ->where('code', $request->code)
-            ->where('verified', false)
-            ->first();
-
-        if (!$verificationCode) {
-            return response()->json([
-                'success' => false,
-                'message' => 'رمز التحقق غير صحيح'
-            ], 400);
-        }
-
-        if ($verificationCode->expires_at->isPast()) {
-            $verificationCode->delete();
-            return response()->json([
-                'success' => false,
-                'message' => 'انتهت صلاحية رمز التحقق'
-            ], 400);
-        }
-
-        // Kodu doğrula
-        $verificationCode->update(['verified' => true]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'تم التحقق بنجاح'
-        ]);
     }
 }
