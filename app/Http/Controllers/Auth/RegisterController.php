@@ -1,5 +1,5 @@
 <?php
-// app/Http/Controllers/Auth/RegisterController.php
+// app/Http\Controllers/Auth/RegisterController.php
 
 namespace App\Http\Controllers\Auth;
 
@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\Registered;
-use Illuminate\Auth\Events\Verified;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Carbon;
 
 class RegisterController extends Controller
 {
@@ -82,7 +83,8 @@ class RegisterController extends Controller
 
             Log::info('User created successfully', [
                 'user_id' => $user->id,
-                'email' => $user->email
+                'email' => $user->email,
+                'email_verified_at' => $user->email_verified_at
             ]);
 
             // Kullanılan kodu temizle
@@ -97,7 +99,8 @@ class RegisterController extends Controller
             return redirect($this->redirectPath());
         } catch (\Exception $e) {
             Log::error('User creation failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             return redirect()->back()
@@ -111,14 +114,8 @@ class RegisterController extends Controller
         Log::info('Creating user with data', $data);
 
         try {
-            // Önce email doğrulama kodunu kontrol et
-            $verification = EmailVerificationCode::where('email', $data['email'])
-                ->where('verified', true)
-                ->where('expires_at', '>', now())
-                ->first();
 
-            // Eğer doğrulama kodu varsa ve doğrulanmışsa, email_verified_at doldur
-            $emailVerifiedAt = $verification ? now() : null;
+            $emailVerifiedAt = now();
 
             $user = User::create([
                 'name' => $data['name'],
@@ -130,13 +127,14 @@ class RegisterController extends Controller
             Log::info('User created in database', [
                 'user_id' => $user->id,
                 'email' => $user->email,
-                'email_verified' => !is_null($emailVerifiedAt)
+                'email_verified_at' => $user->email_verified_at
             ]);
 
             return $user;
         } catch (\Exception $e) {
             Log::error('Database error during user creation', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'data' => $data
             ]);
             throw $e;
         }

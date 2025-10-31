@@ -145,6 +145,7 @@ class EmailVerification {
                 this.verifyCodeBtn.classList.add('btn-success');
                 this.submitBtn.disabled = false;
 
+
                 // Store verification status in localStorage
                 localStorage.setItem('email_verified', 'true');
                 localStorage.setItem('verified_email', email);
